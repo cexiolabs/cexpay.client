@@ -67,8 +67,8 @@ class ApiV2:
 		assert isinstance(key, str)
 		assert isinstance(passphrase, str)
 		assert isinstance(secret, str)
-		assert url is not None and isinstance(url, str)
-		assert ssl_ca_cert is not None and isinstance(ssl_ca_cert, str)
+		assert url is None or isinstance(url, str)
+		assert ssl_ca_cert is None or isinstance(ssl_ca_cert, str)
 
 		self._key = key
 		self._access_passphrase = passphrase
