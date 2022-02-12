@@ -3,11 +3,37 @@ import json
 from typing import Optional
 import requests
 from urllib.parse import ParseResult, quote, urlencode, urlparse
-import urllib3
+
 
 from cexpay.api.security import SignatureCalculator
 
 class Order:
+	@staticmethod
+	def from_json(json_dict: dict):
+		assert isinstance(json_dict, dict)
+
+		# Parse json dict according to https://developers.cexpay.io/processing-api/#fetch-order
+
+		order_id = json_dict["orderId"]
+		client_order_id = json_dict["clientOrderId"]
+		client_order_tag = json_dict["clientOrderTag"]
+
+		return Order(
+			order_id = order_id,
+			client_order_id = client_order_id,
+			client_order_tag = client_order_tag,
+			status = json_dict["status"],
+			state = json_dict["state"],
+			instrument = json_dict["instrument"],
+			from_currency = json_dict["from"]["currency"],
+			from_amount = json_dict["from"]["amount"],
+			from_account_id = json_dict["from"]["accountId"],
+			to_currency = json_dict["to"]["currency"],
+			to_amount = json_dict["to"]["amount"],
+			to_account_id = json_dict["to"]["accountId"],
+			deposit=json_dict["deposit"]
+		)
+
 	def __init__(self,
 		order_id: str,
 		client_order_id: str,
@@ -32,34 +58,23 @@ class Order:
 		self.to_account_id = to_account_id
 		self.deposit = deposit
 
-	@staticmethod
-	def from_json(json_data):
-		return Order(
-			order_id = json_data["orderId"],
-			client_order_id = json_data["clientOrderId"],
-			client_order_tag = json_data["clientOrderTag"],
-			status = json_data["status"],
-			state = json_data["state"],
-			instrument = json_data["instrument"],
-			from_currency = json_data["from"]["currency"],
-			from_amount = json_data["from"]["amount"],
-			from_account_id = json_data["from"]["accountId"],
-			to_currency = json_data["to"]["currency"],
-			to_amount = json_data["to"]["amount"],
-			to_account_id = json_data["to"]["accountId"],
-			deposit=json_data["deposit"]
-		)
-
-
 class ApiV2:
 	'''
 	See https://developers.cexpay.io/processing-api/
 	'''
 
-	def __init__(self, key: str, passphrase: str, secret: str, url: str = "https://api.cexpay.io", ssl_ca_cert: str = None) -> None:
+	def __init__(self, key: str, passphrase: str, secret: str, url: Optional[str] = "https://api.cexpay.io", ssl_ca_cert: Optional[str] = None) -> None:
+		assert isinstance(key, str)
+		assert isinstance(passphrase, str)
+		assert isinstance(secret, str)
+		assert url is not None and isinstance(url, str)
+		assert ssl_ca_cert is not None and isinstance(ssl_ca_cert, str)
+
 		self._key = key
 		self._access_passphrase = passphrase
 		self._signature_calculator = SignatureCalculator(secret)
+		if(url is None):
+			url = "https://api.cexpay.io"
 		self._url = urlparse(url)
 		self._ssl_ca_cert = ssl_ca_cert
 
