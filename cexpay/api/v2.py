@@ -119,7 +119,7 @@ class ApiV2:
 	def order_fetch_by_address(self, address: str) -> Order:
 		encoded_address = quote(address, safe="")
 
-		response_data = self._do_get("/v2/order/byaddress/" + encoded_address)
+		response_data = self._do_get("/v2/order/by-address/" + encoded_address)
 		assert isinstance(response_data, list)
 
 		return response_data
@@ -127,7 +127,7 @@ class ApiV2:
 	def order_fetch_by_tx(self, order_tx: str) -> Order:
 		encoded_order_tx = quote(order_tx, safe="")
 
-		response_data = self._do_get("/v2/order/bytx/" + encoded_order_tx)
+		response_data = self._do_get("/v2/order/by-tx/" + encoded_order_tx)
 		assert isinstance(response_data, list)
 
 		return response_data
