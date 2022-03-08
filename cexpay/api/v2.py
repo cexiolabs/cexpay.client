@@ -31,13 +31,14 @@ class Order:
 			to_currency = json_dict["to"]["currency"],
 			to_amount = json_dict["to"]["amount"],
 			to_account_id = json_dict["to"]["accountId"],
-			deposit=json_dict["deposit"]
+			deposit = json_dict["deposit"],
+			paid_status = json_dict["paidStatus"]
 		)
 
 	def __init__(self,
 		order_id: str,
 		client_order_id: str,
-		status, state,
+		status, state, paid_status,
 		from_currency: str, to_currency: str,
 		from_amount: str, to_amount: str,
 		from_account_id: str, to_account_id: str,
@@ -49,6 +50,7 @@ class Order:
 		self.client_order_tag = client_order_tag
 		self.status = status
 		self.state = state
+		self.paid_status = paid_status
 		self.instrument = instrument
 		self.from_currency = from_currency
 		self.from_amount = from_amount
