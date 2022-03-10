@@ -4,8 +4,82 @@ from typing import Optional
 import requests
 from urllib.parse import ParseResult, quote, urlencode, urlparse
 
-
 from cexpay.api.security import SignatureCalculator
+
+class OrderDepositTransaction:
+	@staticmethod
+	def from_json(json_dict: dict):
+		assert isinstance(json_dict, dict)
+		# Parse json dict according to https://developers.cexpay.io/processing-api/#fetch-order
+		deposit_id = json_dict["depositId"]
+		status = json_dict["status"]
+		confirmations = json_dict["confirmations"]
+		amount = json_dict["amount"]
+		tx_hash = json_dict["txHash"]
+		tx_explorer_url = json_dict["txExplorerUrl"]
+		return OrderDepositTransaction(
+			deposit_id = deposit_id, status = status,
+			confirmations = confirmations, amount = amount,
+			tx_hash = tx_hash, tx_explorer_url = tx_explorer_url
+		)
+
+	def __init__(self, deposit_id: str, status: str, confirmations: int, amount: str, tx_hash: str, tx_explorer_url: str) -> None:
+		self.deposit_id = deposit_id
+		self.status = status
+		self.confirmations = confirmations
+		self.amount = amount
+		self.tx_hash = tx_hash
+		self.tx_explorer_url = tx_explorer_url
+
+class OrderDeposit:
+	@staticmethod
+	def from_json(json_dict: dict):
+		assert isinstance(json_dict, dict)
+		# Parse json dict according to https://developers.cexpay.io/processing-api/#fetch-order
+		kind = json_dict["kind"]
+		network = json_dict["network"]
+		address = json_dict["address"]
+		address_explorer_url = json_dict["addressExplorerUrl"]
+		paid_amount = json_dict["paidAmount"]
+		remain_amount = json_dict["remainAmount"]
+		payment_uri = json_dict["paymentUri"]
+		transactions_raw = json_dict["transactions"]
+		transactions = [OrderDepositTransaction.from_json(x) for x in transactions_raw]
+		return OrderDeposit(
+			kind = kind, network = network,
+			address = address, address_explorer_url = address_explorer_url,
+			paid_amount = paid_amount, remain_amount = remain_amount,
+			payment_uri = payment_uri, transactions = transactions
+		)
+
+	def __init__(
+		self, kind: str, network: str, address: str, address_explorer_url: str,
+		paid_amount: str, remain_amount: str, payment_uri: str,
+		transactions: list[OrderDepositTransaction]
+	) -> None:
+		self.kind = kind
+		self.network = network
+		self.address = address
+		self.address_explorer_url = address_explorer_url
+		self.paid_amount = paid_amount
+		self.remain_amount = remain_amount
+		self.payment_uri = payment_uri
+		self.transactions = transactions
+
+class OrderAccount:
+	@staticmethod
+	def from_json(json_dict: dict):
+		assert isinstance(json_dict, dict)
+		# Parse json dict according to https://developers.cexpay.io/processing-api/#fetch-order
+		currency = json_dict["currency"]
+		amount = json_dict["amount"]
+		account_id = json_dict["accountId"]
+		return OrderAccount(currency, amount, account_id)
+
+	def __init__(self, currency: str, amount: str, account_id: str) -> None:
+		self.currency = currency
+		self.amount = amount
+		self.accountId = account_id
 
 class Order:
 	@staticmethod
@@ -25,25 +99,23 @@ class Order:
 			status = json_dict["status"],
 			state = json_dict["state"],
 			instrument = json_dict["instrument"],
-			from_currency = json_dict["from"]["currency"],
-			from_amount = json_dict["from"]["amount"],
-			from_account_id = json_dict["from"]["accountId"],
-			to_currency = json_dict["to"]["currency"],
-			to_amount = json_dict["to"]["amount"],
-			to_account_id = json_dict["to"]["accountId"],
-			deposit = json_dict["deposit"],
-			paid_status = json_dict["paidStatus"]
+			from_ = OrderAccount.from_json(json_dict["from"]),
+			to_ = OrderAccount.from_json(json_dict["to"]),
+			deposit = OrderDeposit.from_json(json_dict["deposit"]),
+			paid_status = json_dict["paidStatus"],
+			created_at = json_dict["createdAt"],
+			updated_at = json_dict["updatedAt"],
+			expired_at = json_dict["expiredAt"]
 		)
 
 	def __init__(self,
 		order_id: str,
 		client_order_id: str,
 		status, state, paid_status,
-		from_currency: str, to_currency: str,
-		from_amount: str, to_amount: str,
-		from_account_id: str, to_account_id: str,
-		deposit,
-		instrument: str, client_order_tag: str = None
+		from_: OrderAccount, to_: OrderAccount,
+		deposit: OrderDeposit,
+		instrument: str, client_order_tag: Optional[str],
+		created_at: str, updated_at: str, expired_at: str
 	) -> None:
 		self.order_id = order_id
 		self.client_order_id = client_order_id
@@ -52,13 +124,13 @@ class Order:
 		self.state = state
 		self.paid_status = paid_status
 		self.instrument = instrument
-		self.from_currency = from_currency
-		self.from_amount = from_amount
-		self.from_account_id = from_account_id
-		self.to_currency = to_currency
-		self.to_amount = to_amount
-		self.to_account_id = to_account_id
+		setattr(self, "from", from_)
+		self.to = to_
 		self.deposit = deposit
+		self.created_at = created_at
+		self.updated_at = updated_at
+		self.expired_at = expired_at
+
 
 class ApiV2:
 	'''
@@ -156,7 +228,7 @@ class ApiV2:
 		if response_signature is None:
 			raise Exception("Unexpected response. CP-ACCESS-SIGN was not provided. Attack?!")
 
-		response_data_raw = response.content
+		response_data_raw: bytes = response.content
 
 		response_expected_signature = self._signature_calculator.sing(response_timestamp, http_method, sign_url_part, response_data_raw)
 		if response_signature != response_expected_signature:
