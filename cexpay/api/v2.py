@@ -17,19 +17,24 @@ class OrderDepositTransaction:
 		amount = json_dict["amount"]
 		tx_hash = json_dict["txHash"]
 		tx_explorer_url = json_dict["txExplorerUrl"]
+		created_at = json_dict["createdAt"]
+		updated_at = json_dict["updatedAt"]
 		return OrderDepositTransaction(
 			deposit_id = deposit_id, status = status,
 			confirmations = confirmations, amount = amount,
-			tx_hash = tx_hash, tx_explorer_url = tx_explorer_url
+			tx_hash = tx_hash, tx_explorer_url = tx_explorer_url,
+			created_at = created_at, updated_at = updated_at
 		)
 
-	def __init__(self, deposit_id: str, status: str, confirmations: int, amount: str, tx_hash: str, tx_explorer_url: str) -> None:
+	def __init__(self, deposit_id: str, status: str, confirmations: int, amount: str, tx_hash: str, tx_explorer_url: str, created_at: str, updated_at: str) -> None:
 		self.deposit_id = deposit_id
 		self.status = status
 		self.confirmations = confirmations
 		self.amount = amount
 		self.tx_hash = tx_hash
 		self.tx_explorer_url = tx_explorer_url
+		self.created_at = created_at
+		self.updated_at = updated_at
 
 class OrderDeposit:
 	@staticmethod
