@@ -137,6 +137,15 @@ class Order:
 		self.expired_at = expired_at
 
 
+class BaseException(Exception):
+	pass
+
+class BusinessException(BaseException):
+	pass
+
+class NotFoundException(BusinessException):
+	pass
+
 class ApiV2:
 	'''
 	See https://developers.cexpay.io/processing-api/
@@ -186,35 +195,61 @@ class ApiV2:
 
 		return Order.from_json(response_data)
 
-	def order_fetch(self, order_id: str) -> Order:
+	def order_fetch(self, order_id: str, use_merchant_family: bool = False) -> Order:
 		encoded_order_id = quote(order_id, safe="")
 
-		response_data = self._do_get("/v2/order/" + encoded_order_id)
+		query_args = {}
+		if use_merchant_family:
+			query_args["useMerchantFamily"] = "true"
+
+		response_data = self._do_get("/v2/order/" + encoded_order_id, query_args=query_args)
 
 		return Order.from_json(response_data)
 
-	def order_fetch_by_address(self, address: str) -> Order:
+	def order_fetch_by_address(self, address: str, use_merchant_family: bool = False) -> Order:
 		encoded_address = quote(address, safe="")
+		
+		query_args = {}
+		if use_merchant_family:
+			query_args["useMerchantFamily"] = "true"
 
-		response_data = self._do_get("/v2/order/by-address/" + encoded_address)
+		response_data = self._do_get("/v2/order/by-address/" + encoded_address, query_args=query_args)
 		assert isinstance(response_data, list)
 
 		return response_data
 
-	def order_fetch_by_tx(self, order_tx: str) -> Order:
+	def order_fetch_by_tx(self, order_tx: str, use_merchant_family: bool = False) -> Order:
 		encoded_order_tx = quote(order_tx, safe="")
 
-		response_data = self._do_get("/v2/order/by-tx/" + encoded_order_tx)
+		query_args = {}
+		if use_merchant_family:
+			query_args["useMerchantFamily"] = "true"
+
+		response_data = self._do_get("/v2/order/by-tx/" + encoded_order_tx, query_args=query_args)
 		assert isinstance(response_data, list)
 
 		return response_data
+
+	def order_fetch_by_client_id(self, client_order_id: str, use_merchant_family: bool = False) -> Order:
+		query_args = {
+			"clientOrderId": client_order_id
+		}
+		if use_merchant_family:
+			query_args["useMerchantFamily"] = "true"
+
+		response_data = self._do_get("/v2/order", query_args=query_args)
+		if isinstance(response_data, list) and len(response_data) == 1:
+			return Order.from_json(response_data[0])
+		
+		raise NotFoundException("No order found by identifier '%s'" % client_order_id)
+
 
 	def _parse_response(self, response: requests.Response, http_method: str, sign_url_part: str) -> dict:
 		response_content_type = response.headers.get("Content-Type")
 
 		if response.status_code >= 400:
 			error_reason_phrase = response.headers["CP-REASON-PHRASE"]
-			raise Exception("Unexpected response status. Reason: %s" % error_reason_phrase)
+			raise NotFoundException("Unexpected response status. Reason: %s" % error_reason_phrase)
 
 		if response_content_type != "application/json":
 			raise Exception("Unexpected Content-Type: %s" % response_content_type)
@@ -243,7 +278,7 @@ class ApiV2:
 
 		return response_data
 
-	def _do_get(self, url_path: str, query_args: Optional[dict] = None) -> dict:
+	def _do_get(self, url_path: str, query_args: Optional[dict] = None, headers: dict[str,str] = None) -> dict:
 		query: Optional[str] = None
 		if query_args is not None:
 			query = urlencode(query_args, doseq=True)
@@ -259,15 +294,21 @@ class ApiV2:
 
 		signature: str = self._signature_calculator.sing(timestamp, http_method, sign_url_part)
 
+		if headers is None:
+			headers = {}
+
+		headers = {
+			**headers,
+			"Content-Type": "application/json",
+			"CP-ACCESS-KEY": self._key,
+			"CP-ACCESS-TIMESTAMP": timestamp,
+			"CP-ACCESS-PASSPHRASE": self._access_passphrase,
+			"CP-ACCESS-SIGN": signature
+		}
+
 		response: requests.Response = requests.get(
 			url.geturl(),
-			headers = {
-				"Content-Type": "application/json",
-				"CP-ACCESS-KEY": self._key,
-				"CP-ACCESS-TIMESTAMP": timestamp,
-				"CP-ACCESS-PASSPHRASE": self._access_passphrase,
-				"CP-ACCESS-SIGN": signature
-			},
+			headers = headers,
 			verify = self._ssl_ca_cert
 		)
 
