@@ -251,7 +251,7 @@ class ApiV2:
 			error_reason_phrase = response.headers["CP-REASON-PHRASE"]
 			raise NotFoundException("Unexpected response status. Reason: %s" % error_reason_phrase)
 
-		if response_content_type != "application/json":
+		if response_content_type is not None and response_content_type != "application/json":
 			raise Exception("Unexpected Content-Type: %s" % response_content_type)
 
 		response_access_key = response.headers["CP-ACCESS-KEY"]
